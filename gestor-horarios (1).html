@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retícula — armador de horarios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js"></script>
+<style>
+  :root{
+    --navy:#16233F;
+    --navy-2:#233257;
+    --paper:#F6F3EC;
+    --paper-2:#EFEAE0;
+    --gold:#C89B3C;
+    --gold-2:#E4BE6D;
+    --green:#3F7D58;
+    --red:#B4483A;
+    --ink:#1C1C1C;
+    --line:#D9D2C2;
+    --white:#FFFFFF;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--gold-2);}
+  header.top{
+    background:var(--navy);
+    color:var(--white);
+    padding:38px 6vw 30px;
+    position:relative;
+    overflow:hidden;
+  }
+  header.top::after{
+    content:"";
+    position:absolute; right:-60px; top:-60px;
+    width:220px; height:220px; border-radius:50%;
+    background:radial-gradient(circle, var(--gold) 0%, transparent 70%);
+    opacity:.25;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--gold-2); margin:0 0 10px;
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:clamp(30px,4vw,46px);
+    margin:0 0 10px;
+    letter-spacing:-.01em;
+  }
+  header.top p{
+    max-width:620px;
+    color:#D9DCE8;
+    font-size:15.5px;
+    line-height:1.55;
+    margin:0;
+  }
+  main{
+    max-width:1180px;
+    margin:0 auto;
+    padding:40px 6vw 90px;
+  }
+  section.panel{
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:26px 28px;
+    margin-bottom:26px;
+  }
+  .panel-head{
+    display:flex; align-items:baseline; justify-content:space-between; gap:16px;
+    margin-bottom:18px; flex-wrap:wrap;
+  }
+  .panel-num{
+    font-family:'IBM Plex Mono',monospace;
+    color:var(--gold);
+    font-size:13px;
+    margin-right:10px;
+  }
+  h2{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:22px;
+    margin:0;
+    display:inline;
+  }
+  .sub{
+    color:#6b6558; font-size:13.5px; margin:6px 0 0;
+  }
+  .dropzone{
+    border:1.5px dashed var(--line);
+    border-radius:4px;
+    padding:28px;
+    text-align:center;
+    cursor:pointer;
+    transition:.15s border-color, .15s background;
+    background:var(--paper);
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--gold);
+    background:#FBF6EA;
+  }
+  .dropzone strong{display:block; font-size:15px; margin-bottom:4px;}
+  .dropzone span{font-size:13px; color:#847d6c;}
+  input[type=file]{display:none;}
+  .status-line{
+    margin-top:14px; font-family:'IBM Plex Mono',monospace; font-size:12.5px;
+    color:var(--navy-2); min-height:18px;
+  }
+  .status-line.err{color:var(--red);}
+  .status-line.ok{color:var(--green);}
+  table.courses{
+    width:100%; border-collapse:collapse; font-size:13px; margin-top:6px;
+  }
+  table.courses th{
+    text-align:left; font-family:'IBM Plex Mono',monospace; font-size:11px;
+    text-transform:uppercase; letter-spacing:.05em; color:#847d6c;
+    border-bottom:1.5px solid var(--navy); padding:8px 6px;
+  }
+  table.courses td{
+    padding:7px 6px; border-bottom:1px solid var(--line); vertical-align:top;
+  }
+  table.courses td[contenteditable]{outline:none;}
+  table.courses td[contenteditable]:focus{background:#FBF6EA;}
+  table.courses tr:hover td{background:#FBFAF6;}
+  .del-btn{
+    background:none;border:none;color:var(--red);cursor:pointer;font-size:15px;
+    padding:0 4px;
+  }
+  .add-row-btn{
+    margin-top:12px; background:none; border:1px solid var(--line); border-radius:3px;
+    padding:7px 14px; font-family:'Inter'; font-size:13px; cursor:pointer; color:var(--navy);
+  }
+  .add-row-btn:hover{border-color:var(--navy);}
+  .empty-note{color:#928c7c; font-size:13.5px; padding:14px 0;}
+  .config-grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:18px;
+  }
+  .field label{
+    display:block; font-family:'IBM Plex Mono',monospace; font-size:11px;
+    text-transform:uppercase; letter-spacing:.05em; color:#847d6c; margin-bottom:6px;
+  }
+  .field input{
+    width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:3px;
+    font-family:'Inter'; font-size:14px; background:var(--paper);
+  }
+  .field input:focus{outline:none; border-color:var(--gold);}
+  .row-2{display:flex; gap:10px;}
+  .subject-list{
+    display:flex; flex-wrap:wrap; gap:8px; margin-top:16px;
+  }
+  .subject-chip{
+    display:flex; align-items:center; gap:7px;
+    border:1px solid var(--line); border-radius:20px; padding:6px 12px 6px 8px;
+    font-size:12.5px; background:var(--paper); cursor:pointer;
+  }
+  .subject-chip input{accent-color:var(--navy);}
+  .subject-chip.disabled{opacity:.45; cursor:not-allowed;}
+  .generate-btn{
+    margin-top:22px; background:var(--navy); color:var(--white); border:none;
+    padding:13px 26px; font-family:'Inter'; font-weight:600; font-size:14.5px;
+    border-radius:3px; cursor:pointer; letter-spacing:.01em;
+  }
+  .generate-btn:hover{background:var(--navy-2);}
+  .generate-btn:disabled{background:#B8B3A5; cursor:not-allowed;}
+  .results-meta{
+    font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:#6b6558; margin:18px 0 10px;
+  }
+  .combo-scroller{
+    display:flex; gap:20px; overflow-x:auto; padding-bottom:12px;
+    scroll-snap-type:x proximity;
+  }
+  .combo-card{
+    flex:0 0 auto; width:min(560px,84vw);
+    border:1px solid var(--line); border-radius:4px; background:var(--paper);
+    scroll-snap-align:start; overflow:hidden;
+  }
+  .combo-card-head{
+    background:var(--navy); color:var(--white); padding:12px 16px;
+    display:flex; justify-content:space-between; align-items:baseline;
+  }
+  .combo-card-head .idx{font-family:'Fraunces',serif; font-size:19px;}
+  .combo-card-head .cred{font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--gold-2);}
+  .grid-wrap{padding:14px 16px 4px;}
+  .tt{width:100%; border-collapse:collapse; table-layout:fixed; font-size:10.5px;}
+  .tt th{
+    font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:10px;
+    color:var(--navy); padding:4px 2px; border-bottom:1.5px solid var(--navy);
+  }
+  .tt td{
+    border:1px solid var(--line); height:26px; vertical-align:middle; text-align:center;
+    font-family:'IBM Plex Mono',monospace; font-size:9px; padding:1px; line-height:1.15;
+    color:var(--white); border-radius:2px;
+  }
+  .tt td.empty{background:transparent; border-color:var(--line); color:transparent;}
+  .tt .hourcol{
+    color:#847d6c; font-family:'IBM Plex Mono',monospace; font-size:9.5px;
+    border:none; background:transparent; text-align:right; padding-right:6px;
+  }
+  .combo-legend{padding:10px 16px 16px; font-size:12px;}
+  .legend-item{display:flex; gap:8px; align-items:flex-start; margin-bottom:5px;}
+  .legend-swatch{width:11px; height:11px; border-radius:2px; margin-top:3px; flex:0 0 auto;}
+  .legend-item b{font-weight:600;}
+  .legend-item .meta{color:#6b6558; font-size:11px; display:block;}
+  .warn-box{
+    border:1px solid #E5C99A; background:#FBF3E1; color:#7A5A19; border-radius:3px;
+    padding:10px 14px; font-size:13px; margin-top:14px;
+  }
+  .footnote{
+    text-align:center; color:#928c7c; font-size:12.5px; margin-top:40px;
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <p class="eyebrow">Plan carrera · armador de retícula</p>
+  <h1>Retícula</h1>
+  <p>Sube capturas o PDFs de tus horarios disponibles, dile qué semestres cursas, cuántos créditos aguantas y a qué hora puedes entrar y salir. Retícula arma las combinaciones que no se cruzan.</p>
+</header>
+
+<main>
+
+  <!-- PANEL 1: UPLOAD -->
+  <section class="panel">
+    <div class="panel-head">
+      <div><span class="panel-num">01</span><h2>Sube tus horarios</h2></div>
+    </div>
+    <p class="sub">Fotos (.jpg/.png) o PDFs de las tablas de horario. Puedes subir varias veces — cada tanda se agrega a tu lista de materias.</p>
+    <div class="dropzone" id="dropzone">
+      <strong>Arrastra tus capturas aquí, o haz clic para elegir archivos</strong>
+      <span>Se leen con OCR directo en tu navegador (Tesseract.js) — sin API, sin servidor, sin costo</span>
+    </div>
+    <input type="file" id="fileInput" accept="image/*,.pdf" multiple>
+    <div class="status-line" id="statusLine"></div>
+  </section>
+
+  <!-- PANEL 2: COURSES TABLE -->
+  <section class="panel">
+    <div class="panel-head">
+      <div><span class="panel-num">02</span><h2>Materias detectadas</h2></div>
+    </div>
+    <p class="sub">Revisa y corrige lo que haga falta — las celdas son editables. Formato de horario: <code>HH:MM-HH:MM</code>, vacío si no hay clase ese día.</p>
+    <div id="tableWrap">
+      <div class="empty-note">Aún no hay materias. Sube una captura arriba, o agrega una fila manualmente.</div>
+    </div>
+    <button class="add-row-btn" id="addRowBtn">+ agregar materia manualmente</button>
+  </section>
+
+  <!-- PANEL 3: CONFIG + GENERATE -->
+  <section class="panel">
+    <div class="panel-head">
+      <div><span class="panel-num">03</span><h2>Tus condiciones</h2></div>
+    </div>
+    <div class="config-grid">
+      <div class="field">
+        <label>Semestre desde</label>
+        <input type="number" id="semMin" value="1" min="1" max="12">
+      </div>
+      <div class="field">
+        <label>Semestre hasta</label>
+        <input type="number" id="semMax" value="12" min="1" max="12">
+      </div>
+      <div class="field">
+        <label>Créditos máximos</label>
+        <input type="number" id="maxCred" value="30" min="1">
+      </div>
+      <div class="field">
+        <label>Entrada más temprana</label>
+        <input type="time" id="horaEntrada" value="07:00">
+      </div>
+      <div class="field">
+        <label>Salida más tardía</label>
+        <input type="time" id="horaSalida" value="21:00">
+      </div>
+    </div>
+
+    <div id="subjectListWrap">
+      <div class="empty-note">Las materias que puedes elegir aparecerán aquí una vez que tengas datos cargados.</div>
+    </div>
+
+    <button class="generate-btn" id="genBtn" disabled>Generar combinaciones</button>
+    <div id="warnBox"></div>
+  </section>
+
+  <!-- PANEL 4: RESULTS -->
+  <section class="panel" id="resultsPanel" style="display:none;">
+    <div class="panel-head">
+      <div><span class="panel-num">04</span><h2>Combinaciones posibles</h2></div>
+    </div>
+    <div class="results-meta" id="resultsMeta"></div>
+    <div class="combo-scroller" id="comboScroller"></div>
+  </section>
+
+  <p class="footnote">Cada combinación evita cruces de horario, respeta tu rango de semestre, tu tope de créditos y tu ventana de entrada/salida.</p>
+</main>
+
+<script>
+const DAYS = ["Lun","Mar","Mie","Jue","Vie","Sab"];
+const DAY_LABEL = {Lun:"Lun",Mar:"Mar",Mie:"Mié",Jue:"Jue",Vie:"Vie",Sab:"Sáb"};
+let courses = []; // {id, especialidad, semestre, clave, materia, creditos, profesor, idioma, horario:{Lun:"",...}}
+let idCounter = 1;
+
+const PALETTE = ["#16233F","#C89B3C","#3F7D58","#B4483A","#5B4B8A","#2E6E7E","#8A5A2E","#7A2E52","#4A6C2E","#2E4A6C"];
+
+function uid(){ return idCounter++; }
+
+// ---------- FILE UPLOAD & AI PARSING ----------
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const statusLine = document.getElementById('statusLine');
+
+dropzone.addEventListener('click', ()=> fileInput.click());
+dropzone.addEventListener('dragover', e=>{ e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', ()=> dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e=>{
+  e.preventDefault(); dropzone.classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e=> handleFiles(e.target.files));
+
+function setStatus(msg, kind){
+  statusLine.textContent = msg;
+  statusLine.className = 'status-line' + (kind ? ' '+kind : '');
+}
+
+async function handleFiles(fileList){
+  const files = Array.from(fileList);
+  if(!files.length) return;
+  setStatus('Preparando OCR local…');
+  let totalAdded = 0;
+  try{
+    for(const f of files){
+      if(f.type === 'application/pdf'){
+        const canvases = await pdfToCanvases(f);
+        for(let i=0;i<canvases.length;i++){
+          setStatus(`Leyendo página ${i+1} de ${canvases.length} de ${f.name}…`);
+          totalAdded += await ocrAndAppend(canvases[i]);
+        }
+      } else if(f.type.startsWith('image/')){
+        setStatus(`Leyendo ${f.name}…`);
+        totalAdded += await ocrAndAppend(f);
+      }
+    }
+    if(totalAdded === 0){
+      setStatus('No se detectaron filas de materia. Prueba una foto más nítida y derecha, o agrega manualmente.', 'err');
+    } else {
+      renderAll();
+      setStatus(`Listo — se agregaron ${totalAdded} materias. El OCR puede fallar en algo, revisa la tabla.`, 'ok');
+    }
+  }catch(err){
+    console.error(err);
+    setStatus('Error al procesar: ' + err.message, 'err');
+  }
+  fileInput.value = '';
+}
+
+async function pdfToCanvases(file){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+  const canvases = [];
+  for(let i=1;i<=pdf.numPages;i++){
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({scale: 2.5});
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d');
+    await page.render({canvasContext: ctx, viewport}).promise;
+    canvases.push(canvas);
+  }
+  return canvases;
+}
+
+async function ocrAndAppend(source){
+  const { data } = await Tesseract.recognize(source, 'spa');
+  const rows = parseTableFromWords(data.words || []);
+  rows.forEach(r=> courses.push(normalizeCourse(r)));
+  return rows.length;
+}
+
+// ---- Reconstruye la tabla a partir de las palabras con posición que da el OCR ----
+function stripAccents(s){
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+
+const HEADER_KEYS = [
+  {key:'especialidad', test:t=>t.includes('especialidad')},
+  {key:'semestre', test:t=>t.includes('semestre')},
+  {key:'clave', test:t=>t.includes('clave')},
+  {key:'materia', test:t=>t.includes('materia')},
+  {key:'creditos', test:t=>t.includes('cred')},
+  {key:'Lun', test:t=>t.startsWith('lun')},
+  {key:'Mar', test:t=>t.startsWith('mar')},
+  {key:'Mie', test:t=>t.startsWith('mie')},
+  {key:'Jue', test:t=>t.startsWith('jue')},
+  {key:'Vie', test:t=>t.startsWith('vie')},
+  {key:'Sab', test:t=>t.startsWith('sab')},
+  {key:'profesor', test:t=>t.includes('profesor')},
+  {key:'idioma', test:t=>t.includes('idioma')}
+];
+
+function parseTableFromWords(words){
+  if(!words.length) return [];
+  const heights = words.map(w=> w.bbox.y1 - w.bbox.y0).sort((a,b)=>a-b);
+  const avgH = heights[Math.floor(heights.length/2)] || 14;
+
+  // localizar banda de encabezado buscando palabras ancla confiables
+  const strongAnchors = words.filter(w=> ['materia','clave','profesor'].includes(stripAccents(w.text)));
+  if(!strongAnchors.length) return [];
+  const headerY = Math.min(...strongAnchors.map(w=> w.bbox.y0));
+  const headerBottom = headerY + avgH * 2.6;
+
+  // encontrar centro-x de cada columna a partir de las palabras del encabezado
+  const anchors = {};
+  words.forEach(w=>{
+    if(w.bbox.y0 < headerY - avgH || w.bbox.y0 > headerBottom) return;
+    const t = stripAccents(w.text);
+    for(const h of HEADER_KEYS){
+      if(!(h.key in anchors) && h.test(t)){
+        anchors[h.key] = (w.bbox.x0 + w.bbox.x1) / 2;
+      }
+    }
+  });
+  const cols = Object.entries(anchors);
+  if(!cols.length) return [];
+
+  // agrupar palabras del cuerpo en filas por cercanía vertical
+  const bodyWords = words
+    .filter(w=> w.bbox.y0 > headerBottom)
+    .sort((a,b)=> (a.bbox.y0+a.bbox.y1) - (b.bbox.y0+b.bbox.y1));
+
+  const rows = [];
+  let current = null, currentY = null;
+  bodyWords.forEach(w=>{
+    const yc = (w.bbox.y0 + w.bbox.y1) / 2;
+    if(current === null || Math.abs(yc - currentY) > avgH * 0.85){
+      current = []; rows.push(current); currentY = yc;
+    } else {
+      currentY = (currentY + yc) / 2;
+    }
+    current.push(w);
+  });
+
+  // fusionar líneas que son continuación de un nombre de materia envuelto en
+  // dos renglones (no traen ni semestre ni clave -> no arrancan un registro nuevo)
+  const isRecordStart = rowWords => rowWords.some(w=>
+    /^\d{1,2}$/.test(w.text) || /^\d{5,6}$/.test(w.text)
+  );
+  const mergedRows = [];
+  rows.forEach(r=>{
+    if(mergedRows.length && !isRecordStart(r)){
+      mergedRows[mergedRows.length-1] = mergedRows[mergedRows.length-1].concat(r);
+    } else {
+      mergedRows.push(r);
+    }
+  });
+
+  // asignar cada palabra a la columna más cercana y armar el texto de cada celda
+  const parsedRows = mergedRows.map(rowWords=>{
+    const cell = {};
+    rowWords.forEach(w=>{
+      const xc = (w.bbox.x0 + w.bbox.x1) / 2;
+      let best = cols[0][0], bestDist = Infinity;
+      cols.forEach(([key, cx])=>{
+        const d = Math.abs(xc - cx);
+        if(d < bestDist){ bestDist = d; best = key; }
+      });
+      cell[best] = (cell[best] ? cell[best] + ' ' : '') + w.text;
+    });
+    return cell;
+  });
+
+  return parsedRows
+    .filter(c=> (c.clave && c.clave.trim()) || (c.materia && c.materia.trim()))
+    .map(c=>{
+      const horario = {};
+      DAYS.forEach(d=> horario[d] = parseTimeCell(c[d] || ''));
+      return {
+        especialidad: (c.especialidad || '').trim(),
+        semestre: parseInt((c.semestre||'').replace(/\D/g,''), 10) || 1,
+        clave: (c.clave || '').replace(/[^0-9A-Za-z]/g,'').trim(),
+        materia: (c.materia || '').trim(),
+        creditos: parseInt((c.creditos||'').replace(/\D/g,''), 10) || 0,
+        profesor: (c.profesor || '').trim(),
+        idioma: /espan/i.test(stripAccents(c.idioma||'')) ? 'Español' : (c.idioma || 'Español'),
+        horario
+      };
+    });
+}
+
+function parseTimeCell(text){
+  const m = text.match(/(\d{1,2})(?::(\d{2}))?\s*-\s*(\d{1,2})(?::(\d{2}))?/);
+  if(!m) return '';
+  const [_, sh, sm, eh, em] = m;
+  const pad = n=> String(n).padStart(2,'0');
+  return `${pad(sh)}:${sm||'00'}-${pad(eh)}:${em||'00'}`;
+}
+
+function normalizeCourse(c){
+  const horario = {};
+  DAYS.forEach(d=> horario[d] = (c.horario && c.horario[d]) ? String(c.horario[d]).trim() : "");
+  return {
+    id: uid(),
+    especialidad: c.especialidad || "",
+    semestre: Number(c.semestre) || 1,
+    clave: c.clave || "",
+    materia: (c.materia || "").trim(),
+    creditos: Number(c.creditos) || 0,
+    profesor: c.profesor || "",
+    idioma: c.idioma || "Español",
+    horario
+  };
+}
+
+// ---------- COURSES TABLE ----------
+const tableWrap = document.getElementById('tableWrap');
+document.getElementById('addRowBtn').addEventListener('click', ()=>{
+  courses.push(normalizeCourse({materia:"Nueva materia", semestre:1, creditos:4, clave:"", profesor:"", idioma:"Español", horario:{}}));
+  renderAll();
+});
+
+function renderCoursesTable(){
+  if(!courses.length){
+    tableWrap.innerHTML = '<div class="empty-note">Aún no hay materias. Sube una captura arriba, o agrega una fila manualmente.</div>';
+    return;
+  }
+  let html = `<table class="courses"><thead><tr>
+    <th>Sem.</th><th>Clave</th><th>Materia</th><th>Créd.</th>
+    ${DAYS.map(d=>`<th>${DAY_LABEL[d]}</th>`).join('')}
+    <th>Profesor</th><th></th>
+  </tr></thead><tbody>`;
+  courses.forEach(c=>{
+    html += `<tr data-id="${c.id}">
+      <td contenteditable data-f="semestre">${c.semestre}</td>
+      <td contenteditable data-f="clave">${c.clave}</td>
+      <td contenteditable data-f="materia">${c.materia}</td>
+      <td contenteditable data-f="creditos">${c.creditos}</td>
+      ${DAYS.map(d=>`<td contenteditable data-f="horario.${d}">${c.horario[d]}</td>`).join('')}
+      <td contenteditable data-f="profesor">${c.profesor}</td>
+      <td><button class="del-btn" data-del="${c.id}">✕</button></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  tableWrap.innerHTML = html;
+
+  tableWrap.querySelectorAll('td[contenteditable]').forEach(td=>{
+    td.addEventListener('blur', onCellEdit);
+  });
+  tableWrap.querySelectorAll('.del-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      courses = courses.filter(c=> c.id !== Number(btn.dataset.del));
+      renderAll();
+    });
+  });
+}
+
+function onCellEdit(e){
+  const td = e.target;
+  const tr = td.closest('tr');
+  const id = Number(tr.dataset.id);
+  const c = courses.find(x=> x.id===id);
+  if(!c) return;
+  const field = td.dataset.f;
+  const val = td.textContent.trim();
+  if(field.startsWith('horario.')){
+    const day = field.split('.')[1];
+    c.horario[day] = val;
+  } else if(field === 'semestre' || field === 'creditos'){
+    c[field] = Number(val) || 0;
+  } else {
+    c[field] = val;
+  }
+  renderSubjectList();
+  refreshGenerateState();
+}
+
+// ---------- SUBJECT SELECTION ----------
+const subjectListWrap = document.getElementById('subjectListWrap');
+let excludedSubjects = new Set();
+
+function getFilteredGroups(){
+  const semMin = Number(document.getElementById('semMin').value);
+  const semMax = Number(document.getElementById('semMax').value);
+  const entrada = document.getElementById('horaEntrada').value;
+  const salida = document.getElementById('horaSalida').value;
+  return courses.filter(c=>{
+    if(c.semestre < semMin || c.semestre > semMax) return false;
+    return DAYS.every(d=>{
+      const val = c.horario[d];
+      if(!val) return true;
+      const [start,end] = val.split('-');
+      if(!start || !end) return true;
+      return start >= entrada && end <= salida;
+    });
+  });
+}
+
+function normalizeSubject(s){
+  return stripAccents(s || '')
+    .toUpperCase()
+    .replace(/\|/g,'I')
+    .replace(/[^A-Z0-9 ]/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+function findDuplicateSubjectPairs(names){
+  const pairs = [];
+  for(let i=0;i<names.length;i++){
+    for(let j=i+1;j<names.length;j++){
+      const a = names[i], b = names[j];
+      const na = normalizeSubject(a), nb = normalizeSubject(b);
+      if(!na || !nb || na === nb) { if(na===nb && a!==b) pairs.push([a,b]); continue; }
+      const isPrefix = na.startsWith(nb) || nb.startsWith(na);
+      const wa = new Set(na.split(' ').filter(Boolean));
+      const wb = new Set(nb.split(' ').filter(Boolean));
+      const inter = [...wa].filter(w=> wb.has(w)).length;
+      const union = new Set([...wa, ...wb]).size;
+      const jaccard = union ? inter/union : 0;
+      if(isPrefix || jaccard >= 0.6) pairs.push([a,b]);
+    }
+  }
+  return pairs;
+}
+
+function mergeSubjects(nameA, nameB){
+  const canonical = nameA.length >= nameB.length ? nameA : nameB;
+  const other = canonical === nameA ? nameB : nameA;
+  courses.forEach(c=>{ if(c.materia === other) c.materia = canonical; });
+  excludedSubjects.delete(other);
+  renderAll();
+}
+
+function renderSubjectList(){
+  const groups = getFilteredGroups();
+  if(!groups.length){
+    subjectListWrap.innerHTML = '<div class="empty-note">Ninguna materia cargada cae dentro de tu rango de semestre y horario actual.</div>';
+    refreshGenerateState();
+    return;
+  }
+  const bySubject = {};
+  groups.forEach(c=>{ (bySubject[c.materia] ||= []).push(c); });
+  const names = Object.keys(bySubject).sort();
+  const dupPairs = findDuplicateSubjectPairs(names);
+
+  let dupHtml = '';
+  if(dupPairs.length){
+    dupHtml = '<div class="warn-box" style="margin-bottom:16px;">' +
+      '<b>Podrían ser la misma materia leída distinto por el OCR:</b>' +
+      dupPairs.map((p,i)=> `<div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <span>"${escapeHtml(p[0])}" ↔ "${escapeHtml(p[1])}"</span>
+        <button class="add-row-btn" style="padding:4px 12px;font-size:12px;margin-top:0;" data-merge="${i}">Fusionar</button>
+      </div>`).join('') +
+    '</div>';
+  }
+
+  subjectListWrap.innerHTML = dupHtml + '<div class="subject-list">' + names.map(name=>{
+    const n = bySubject[name].length;
+    const checked = !excludedSubjects.has(name);
+    return `<label class="subject-chip">
+      <input type="checkbox" data-subj="${encodeURIComponent(name)}" ${checked?'checked':''}>
+      ${escapeHtml(name)} <span style="color:#928c7c">(${n} grupo${n>1?'s':''})</span>
+    </label>`;
+  }).join('') + '</div>';
+
+  subjectListWrap.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const name = decodeURIComponent(cb.dataset.subj);
+      if(cb.checked) excludedSubjects.delete(name); else excludedSubjects.add(name);
+    });
+  });
+  subjectListWrap.querySelectorAll('[data-merge]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const [a,b] = dupPairs[Number(btn.dataset.merge)];
+      mergeSubjects(a,b);
+    });
+  });
+  refreshGenerateState();
+}
+
+function refreshGenerateState(){
+  document.getElementById('genBtn').disabled = courses.length === 0;
+}
+
+['semMin','semMax','maxCred','horaEntrada','horaSalida'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', renderSubjectList);
+});
+
+function renderAll(){
+  renderCoursesTable();
+  renderSubjectList();
+}
+
+// ---------- COMBINATION ENGINE ----------
+function timeToMin(t){
+  const [h,m] = t.split(':').map(Number);
+  return h*60 + (m||0);
+}
+
+function conflicts(a, b){
+  return DAYS.some(d=>{
+    const av = a.horario[d], bv = b.horario[d];
+    if(!av || !bv) return false;
+    const [as,ae] = av.split('-').map(timeToMin);
+    const [bs,be] = bv.split('-').map(timeToMin);
+    return as < be && bs < ae;
+  });
+}
+
+function generateCombinations(){
+  const maxCred = Number(document.getElementById('maxCred').value) || Infinity;
+  const groups = getFilteredGroups();
+  const bySubject = {};
+  groups.forEach(c=>{ (bySubject[c.materia] ||= []).push(c); });
+
+  const subjects = Object.keys(bySubject).filter(s=> !excludedSubjects.has(s));
+  const warnBox = document.getElementById('warnBox');
+  warnBox.innerHTML = '';
+
+  if(!subjects.length){
+    warnBox.innerHTML = '<div class="warn-box">No hay materias seleccionadas dentro de tu rango de semestre y horario.</div>';
+    return { combos: [], subjects };
+  }
+  if(subjects.length > 22){
+    warnBox.innerHTML = '<div class="warn-box">Tienes muchas materias marcadas (' + subjects.length + '). Desmarca algunas para que el cálculo sea rápido.</div>';
+  }
+
+  const results = [];
+  const MAX_CALLS = 3000000; // límite de seguridad para no colgar el navegador
+  let calls = 0;
+
+  // Cada materia es OPCIONAL: se intenta meter la mayor cantidad posible sin
+  // cruces y sin pasarse del tope de créditos — no exige tomarlas todas.
+  function backtrack(idx, chosen, creditSum){
+    calls++;
+    if(calls > MAX_CALLS) return;
+    if(idx === subjects.length){
+      if(chosen.length) results.push({ courses: [...chosen], credits: creditSum });
+      return;
+    }
+    const subj = subjects[idx];
+    // opción 1: no tomar esta materia en esta combinación
+    backtrack(idx+1, chosen, creditSum);
+    // opción 2: tomar alguno de sus grupos disponibles
+    for(const g of bySubject[subj]){
+      if(creditSum + g.creditos > maxCred) continue;
+      if(chosen.some(x=> conflicts(x, g))) continue;
+      chosen.push(g);
+      backtrack(idx+1, chosen, creditSum + g.creditos);
+      chosen.pop();
+    }
+  }
+  backtrack(0, [], 0);
+
+  // primero las que incluyen más materias, luego las de más créditos
+  results.sort((a,b)=> b.courses.length - a.courses.length || b.credits - a.credits);
+
+  // quedarnos solo con combinaciones que no estén "contenidas" en otra mejor
+  // (evita mostrar varias versiones casi idénticas con una materia menos)
+  const top = [];
+  for(const r of results){
+    if(top.length >= 10) break;
+    const namesR = new Set(r.courses.map(c=>c.materia));
+    const dominated = top.some(t=>{
+      const namesT = new Set(t.courses.map(c=>c.materia));
+      return namesT.size >= namesR.size && [...namesR].every(n=> namesT.has(n));
+    });
+    if(!dominated) top.push(r);
+  }
+
+  if(!results.length){
+    warnBox.innerHTML = '<div class="warn-box">Ni una sola materia marcada cabe dentro de tu tope de créditos o tu ventana de horario. Sube el tope de créditos o amplía el horario.</div>';
+  }
+
+  return { combos: top, subjects, totalFound: results.length };
+}
+
+document.getElementById('genBtn').addEventListener('click', ()=>{
+  const { combos, subjects, totalFound } = generateCombinations();
+  const resultsPanel = document.getElementById('resultsPanel');
+  const meta = document.getElementById('resultsMeta');
+  const scroller = document.getElementById('comboScroller');
+  const warnBox = document.getElementById('warnBox');
+
+  if(!combos.length){
+    resultsPanel.style.display = 'none';
+    return;
+  }
+  const maxMaterias = combos[0].courses.length;
+  const totalSubjects = subjects.length;
+  resultsPanel.style.display = 'block';
+  meta.textContent = totalSubjects && maxMaterias < totalSubjects
+    ? `No caben las ${totalSubjects} materias marcadas a la vez — la mejor combinación mete ${maxMaterias} de ${totalSubjects} sin cruzarse. Mostrando ${combos.length} de ${totalFound} combinación(es) posibles.`
+    : `Las ${maxMaterias} materias marcadas caben sin cruzarse. Mostrando ${combos.length} de ${totalFound} combinación(es) posibles.`;
+  scroller.innerHTML = combos.map((combo, i)=> renderComboCard(combo, i)).join('');
+  resultsPanel.scrollIntoView({behavior:'smooth', block:'start'});
+});
+
+function renderComboCard(combo, i){
+  const subjColor = {};
+  combo.courses.forEach((c,ci)=> subjColor[c.materia] = PALETTE[ci % PALETTE.length]);
+
+  // determine time bounds
+  let minH = 23, maxH = 0;
+  combo.courses.forEach(c=> DAYS.forEach(d=>{
+    const v = c.horario[d];
+    if(!v) return;
+    const [s,e] = v.split('-').map(timeToMin);
+    minH = Math.min(minH, Math.floor(s/60));
+    maxH = Math.max(maxH, Math.ceil(e/60));
+  }));
+  if(minH > maxH){ minH = 7; maxH = 21; }
+
+  let rows = '';
+  for(let h=minH; h<maxH; h++){
+    rows += `<tr><td class="hourcol">${String(h).padStart(2,'0')}:00</td>`;
+    DAYS.forEach(d=>{
+      const hit = combo.courses.find(c=>{
+        const v = c.horario[d]; if(!v) return false;
+        const [s,e] = v.split('-').map(timeToMin);
+        return h*60 >= s && h*60 < e;
+      });
+      if(hit){
+        rows += `<td style="background:${subjColor[hit.materia]}">${hit.clave || ''}</td>`;
+      } else {
+        rows += `<td class="empty"></td>`;
+      }
+    });
+    rows += '</tr>';
+  }
+
+  const legend = combo.courses.map(c=> `
+    <div class="legend-item">
+      <span class="legend-swatch" style="background:${subjColor[c.materia]}"></span>
+      <div><b>${escapeHtml(c.materia)}</b> — ${c.creditos} créd.
+      <span class="meta">${escapeHtml(c.clave || '')}${c.profesor ? ' · '+escapeHtml(c.profesor) : ''}</span></div>
+    </div>`).join('');
+
+  return `<div class="combo-card">
+    <div class="combo-card-head">
+      <span class="idx">Opción ${i+1}</span>
+      <span class="cred">${combo.credits} créditos · ${combo.courses.length} materias</span>
+    </div>
+    <div class="grid-wrap">
+      <table class="tt">
+        <thead><tr><th></th>${DAYS.map(d=>`<th>${DAY_LABEL[d]}</th>`).join('')}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="combo-legend">${legend}</div>
+  </div>`;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+// ---------- INIT (sin datos precargados) ----------
+renderAll();
+</script>
+</body>
+</html>
